@@ -21,18 +21,23 @@ class DatabaseServices {
   static const keyStatus = "status";
 
   /// if database is null then create a new database otherwise return database.
-  Future<Database> checkDb() async {
+  Future<Database> checkDb({bool isTest = false}) async {
     if (database != null) {
       return database!;
     } else {
-      return await createDb();
+      return await createDb(isTest: isTest);
     }
   }
 
   /// create a new database
-  Future<Database> createDb() async {
-    final directory = await getApplicationDocumentsDirectory();
-    String path = join(directory.path, dbName);
+  Future<Database> createDb({bool isTest = false}) async {
+    String path;
+    if(isTest) {
+      path = join(inMemoryDatabasePath, dbName);
+    } else {
+      final directory = await getApplicationDocumentsDirectory();
+      path = join(directory.path, dbName);
+    }
 
     return await openDatabase(
       path,
@@ -46,8 +51,8 @@ class DatabaseServices {
   }
 
   /// get all task from database
-  Future<List<TaskModel>> getAllTaskData() async {
-    database = await checkDb();
+  Future<List<TaskModel>> getAllTaskData({bool isTest = false, Database? testDatabase}) async {
+    database = await getCurrentDatabase(testDatabase);
 
     String query = "SELECT * from $keyTableTaskData";
     final result = await database!.rawQuery(query);
@@ -57,9 +62,9 @@ class DatabaseServices {
   }
 
   /// insert task into database
-  Future<bool> insertTask({required TaskModel task}) async {
+  Future<bool> insertTask({required TaskModel task, bool isTest = false, Database? testDatabase}) async {
     final model = task.toJson();
-    database = await checkDb();
+    database = await getCurrentDatabase(testDatabase);
     final result = await database?.insert(
           keyTableTaskData,
           model,
@@ -73,8 +78,8 @@ class DatabaseServices {
   }
 
   /// delete task from database
-  Future<bool> deleteTask({required int id}) async {
-    database = await checkDb();
+  Future<bool> deleteTask({required int id, bool isTest = false, Database? testDatabase}) async {
+    database = await getCurrentDatabase(testDatabase);
     final result = await database?.delete(keyTableTaskData, where: "$keyId = ?", whereArgs: [id]);
 
     if (result == 1) {
@@ -84,13 +89,21 @@ class DatabaseServices {
   }
 
   /// update task in database
-  Future<bool> updateTask({required TaskModel task}) async {
+  Future<bool> updateTask({required TaskModel task, bool isTest = false, Database? testDatabase}) async {
     final model = task.toJson();
-    database = await checkDb();
+    database = await getCurrentDatabase(testDatabase);
     final result = await database?.update(keyTableTaskData, model, where: "$keyId = ?", whereArgs: [task.id]);
     if (result == 1) {
       return true;
     }
     return false;
+  }
+
+  Future<Database> getCurrentDatabase(Database? testDatabase) async{
+    if(testDatabase != null) {
+      return testDatabase;
+    }else {
+      return await checkDb();
+    }
   }
 }
